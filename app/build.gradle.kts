@@ -63,12 +63,12 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    //navegacion
+    //Navegacion
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlin.serialization.json)
     implementation(libs.material3)
 
-    //room
+    //Room
     implementation(libs.androidx.room.runtime)
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.room.ktx)
