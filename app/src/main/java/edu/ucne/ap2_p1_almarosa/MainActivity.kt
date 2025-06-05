@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
+import edu.ucne.ap2_p1_almarosa.data.navigation.TareaNavHost
 import edu.ucne.ap2_p1_almarosa.ui.theme.Ap2_P1_AlmaRosaTheme
 
 @AndroidEntryPoint
@@ -22,8 +23,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             Ap2_P1_AlmaRosaTheme {
-                val nav = rememberNavController()
-                NavHost(nav)
+                val navHost = rememberNavController()
+                TareaNavHost(navHost)
             }
         }
     }
