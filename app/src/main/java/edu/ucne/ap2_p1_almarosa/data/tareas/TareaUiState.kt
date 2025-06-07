@@ -10,6 +10,9 @@ data class TareaUiState (
     val tareaEditandoId: Int? = null,
     val successMessage: String? = null,
     val tarea: List<TareaEntity> = emptyList()
-)
+) {
+    val editando: Boolean
+        get() = tareaEditandoId != null
+}
 
 

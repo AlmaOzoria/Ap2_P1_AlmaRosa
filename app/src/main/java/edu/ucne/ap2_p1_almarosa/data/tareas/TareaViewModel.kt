@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import edu.ucne.ap2_p1_almarosa.data.local.entities.TareaEntity
 import edu.ucne.ap2_p1_almarosa.data.local.repository.TareaRepository
+import edu.ucne.ap2_p1_almarosa.data.tareas.TareaEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,125 +20,99 @@ class TareaViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TareaUiState())
-    val uiState: StateFlow<TareaUiState> = _uiState.asStateFlow()
+    val uiState: StateFlow<TareaUiState> = _uiState
 
     init {
-        loadTarea()
-    }
-
-    private fun loadTarea() {
         viewModelScope.launch {
-            repository.getAll().collect { tarea ->
-                _uiState.update { it.copy(tarea = tarea) }
+            repository.getAll().collect { tareas ->
+                _uiState.update { it.copy(tarea = tareas) }
             }
         }
     }
 
-    fun onDescripcionChange(newValue: String) {
-        _uiState.update { it.copy(descripcion = newValue) }
-    }
+    fun onEvent(event: TareaEvent) {
+        when (event) {
+            is TareaEvent.OnDescripcionChange -> {
+                _uiState.update { it.copy(descripcion = event.descripcion) }
+            }
 
-    fun onTiempoChange(newValue: Int) {
-        _uiState.update { it.copy(tiempo = newValue) }
-    }
+            is TareaEvent.OnTiempoChange -> {
+                _uiState.update { it.copy(tiempo = event.tiempo) }
+            }
 
-    fun editarTarea(tarea: TareaEntity) {
-        _uiState.update {
-            it.copy(
-                descripcion = tarea.descripcion,
-                tiempo = tarea.tiempo,
-                tareaEditandoId = tarea.tareaid,
-                errorMessage = null,
-                successMessage = null
-            )
-        }
-    }
+            is TareaEvent.OnEditar -> {
+                _uiState.update {
+                    it.copy(
+                        tareaEditandoId = event.tarea.tareaid,
+                        descripcion = event.tarea.descripcion,
+                        tiempo = event.tarea.tiempo
+                    )
+                }
+            }
 
-    fun guardarTarea() {
-        val state = _uiState.value
+            is TareaEvent.OnEliminar -> {
+                viewModelScope.launch {
+                    repository.delete(event.tarea)
+                }
+            }
 
-        if (state.descripcion.isBlank()) {
-            _uiState.update { it.copy(errorMessage = "La Descripción es obligatoria.") }
-            return
-        }
+            is TareaEvent.OnGuardar -> {
+                val descripcion = uiState.value.descripcion
+                val tiempo = uiState.value.tiempo
 
-        if (state.tiempo <= 0) {
-            _uiState.update { it.copy(errorMessage = "El Tiempo es obligatorio y debe ser mayor que 0.") }
-            return
-        }
+                if (descripcion.isBlank()) {
+                    _uiState.update { it.copy(errorMessage = "La descripción es obligatoria") }
+                    return
+                }
 
-        viewModelScope.launch {
-            val tarea = TareaEntity(
-                tareaid = state.tareaEditandoId ?: 0,
-                descripcion = state.descripcion,
-                tiempo = state.tiempo
-            )
+                if (tiempo <= 0) {
+                    _uiState.update { it.copy(errorMessage = "El tiempo es obligatorio y debe ser mayor que 0") }
+                    return
+                }
 
-            if (state.tareaEditandoId != null) {
-                repository.saveTarea(tarea)
+                viewModelScope.launch {
+                    val tarea = TareaEntity(
+                        tareaid = uiState.value.tareaEditandoId ?: null,
+                        descripcion = descripcion,
+                        tiempo = tiempo
+                    )
+
+                    if (uiState.value.tareaEditandoId == null) {
+                        repository.saveTarea(tarea)
+                    } else {
+                        repository.updateTarea(tarea)
+                    }
+
+                    _uiState.update {
+                        it.copy(
+                            descripcion = "",
+                            tiempo = 0,
+                            tareaEditandoId = null,
+                            errorMessage = null,
+                            successMessage = "Tarea guardada correctamente"
+                        )
+                    }
+                }
+            }
+
+            is TareaEvent.OnCancelar -> {
                 _uiState.update {
                     it.copy(
                         descripcion = "",
                         tiempo = 0,
                         tareaEditandoId = null,
                         errorMessage = null,
-                        successMessage = "Tarea actualizada con éxito"
+                        successMessage = null
                     )
                 }
-            } else {
-                if (isDescripcionDuplicado(state.descripcion)) {
-                    _uiState.update { it.copy(errorMessage = "La descripción ya existe.") }
-                    return@launch
-                }
-                repository.saveTarea(tarea.copy(tareaid = null))
+            }
+
+            is TareaEvent.ClearMessages -> {
                 _uiState.update {
-                    it.copy(
-                        descripcion = "",
-                        tiempo = 0,
-                        errorMessage = null,
-                        successMessage = "Tarea guardada con éxito"
-                    )
+                    it.copy(errorMessage = null, successMessage = null)
                 }
             }
         }
     }
-
-
-    fun cancelarEdicion() {
-        _uiState.update {
-            it.copy(
-                descripcion = "",
-                tiempo = 0,
-                tareaEditandoId = null,
-                errorMessage = null,
-                successMessage = null
-            )
-        }
-    }
-
-    fun delete(tarea: TareaEntity) {
-        viewModelScope.launch {
-            repository.delete(tarea)
-        }
-    }
-
-    fun isDescripcionDuplicado(descripcion: String): Boolean {
-        val state = _uiState.value
-        return if (state.tareaEditandoId != null) {
-            state.tarea.any { it.descripcion == descripcion && it.tareaid != state.tareaEditandoId }
-        } else {
-            state.tarea.any { it.descripcion == descripcion }
-        }
-    }
-
-    fun getTareaById(id: Int?): TareaEntity? {
-        return _uiState.value.tarea.find { it.tareaid == id }
-    }
-
-    fun clearMessages() {
-        _uiState.update { it.copy(successMessage = null, errorMessage = null) }
-    }
-
-
-
 }
+
