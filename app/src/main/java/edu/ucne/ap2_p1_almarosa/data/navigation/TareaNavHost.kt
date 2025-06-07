@@ -1,12 +1,14 @@
 package edu.ucne.ap2_p1_almarosa.data.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
-import androidx.compose.runtime.*
-import androidx.navigation.*
-import androidx.navigation.compose.*
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.compose.composable
+import edu.ucne.ap2_p1_almarosa.data.tareas.TareaEvent
 import edu.ucne.ap2_p1_almarosa.data.tareas.TareaListScreen
 import edu.ucne.ap2_p1_almarosa.data.tareas.TareaScreen
 import edu.ucne.ap2_p1_almarosa.data.tareas.TareaViewModel
@@ -16,7 +18,7 @@ fun TareaNavHost(
     navHostController: NavHostController,
     viewModel: TareaViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     NavHost(
         navController = navHostController,
@@ -24,48 +26,30 @@ fun TareaNavHost(
     ) {
         composable("TareaList") {
             TareaListScreen(
-                tareaList = uiState.tarea,
                 onEdit = { tarea ->
-                    viewModel.editarTarea(tarea)
+                    viewModel.onEvent(TareaEvent.OnEditar(tarea))
                     navHostController.navigate("TareaForm")
                 },
                 onCreate = {
-                    viewModel.cancelarEdicion()
+                    viewModel.onEvent(TareaEvent.OnCancelar)
                     navHostController.navigate("TareaForm")
                 },
                 onDelete = { tarea ->
-                    viewModel.delete(tarea)
+                    viewModel.onEvent(TareaEvent.OnEliminar(tarea))
                 }
             )
         }
 
         composable("TareaForm") {
-            TareaScreen(
-                descripcion = uiState.descripcion,
-                tiempo = uiState.tiempo,
-                onDescripcionChange = { viewModel.onDescripcionChange(it) },
-                onTiempoChange = { viewModel.onTiempoChange(it) },
-                onGuardar = {
-                    viewModel.guardarTarea()
-                },
-                onCancel = {
-                    viewModel.cancelarEdicion()
-                    navHostController.popBackStack()
-                },
-                editando = uiState.tareaEditandoId != null,
-                errorMessage = uiState.errorMessage,
-                successMessage = uiState.successMessage
-            )
+            TareaScreen(viewModel = viewModel)
 
             LaunchedEffect(uiState.successMessage) {
                 if (!uiState.successMessage.isNullOrEmpty()) {
                     navHostController.popBackStack()
-                    viewModel.clearMessages()
+                    viewModel.onEvent(TareaEvent.ClearMessages)
                 }
             }
-
         }
-
     }
 }
 
